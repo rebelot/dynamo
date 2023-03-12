@@ -1,0 +1,19 @@
+MAIN 0:type 1:name 2:element 3:m 4:r 5:q 6:x 7:y 8:z
+OW O O 16.0  1 -0.834000  0 0 0
+HW H H 1.008 1  0.417000  1 1 0
+HW H H 1.008 1  0.417000 -1 1 0
+
+NONBOND 0:index 1:r12 2:r6
+0 -2 1.7683 0.1520 
+1 1 0 0
+2 1 0 0
+
+BOND 0:index1 1:index2 2:k 3:r0
+0 1 553.0 0.9572  
+0 2 553.0 0.9572 
+1 2 553.0 1.5136 
+
+ANGLE 0:index1 1:index2 2:index3 2:k 3:t0
+0 1 2 37.95 113.24
+
+DIHEDRAL 0:index1 1:index2 2:index3 3:index4 4:k 5:t0
