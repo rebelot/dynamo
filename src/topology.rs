@@ -1,36 +1,17 @@
-use crate::ffield::FFList;
-use std::{cell::RefCell, rc::Rc};
+use crate::ffield::Forces;
 
 pub mod atom;
-mod reader;
-
-pub fn test() {
-    println!("Hello from topology!");
-}
 
 #[derive(Debug)]
 pub struct Topology {
-    pub atoms: Vec<Rc<RefCell<atom::Atom>>>,
-    pub ff: FFList,
+    pub atoms: Vec<atom::Atom>,
 }
 
 impl Topology {
-    pub fn new() -> Topology {
-        Topology {
-            atoms: Vec::new(),
-            ff: FFList::new(),
-        }
+    pub fn new() -> Self {
+        return Topology { atoms: Vec::new() };
     }
-    pub fn add_bond(&mut self, a1: usize, a2: usize) {
-        self.atoms[a1]
-            .borrow_mut()
-            .bonds
-            .push(Rc::clone(&self.atoms[a2]));
-        self.atoms[a2]
-            .borrow_mut()
-            .bonds
-            .push(Rc::clone(&self.atoms[a1]));
-    }
+
     pub fn add_atom(
         &mut self,
         atomtype: String,
@@ -46,7 +27,13 @@ impl Topology {
         self.atoms.push(atom);
         return index;
     }
-    pub fn read(filename: &str) -> Topology {
-        return reader::read(filename);
+
+    pub fn init_forces(&mut self) {
+        for a in self.atoms.iter_mut() {
+            for i in 0..3 {
+                a.prev_force[i] = a.force[i];
+                a.force[i] = 0.0;
+            }
+        }
     }
 }

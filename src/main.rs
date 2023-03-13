@@ -1,22 +1,12 @@
-use std::{cell::RefCell, rc::Rc};
+use dynamo::integrator::verlet::VelocityVerlet;
+use dynamo::system::System;
 
-use dynamo::topology::{self, atom::Atom};
 
 fn main() {
-    let a = Atom::new(
-        0,
-        "x".to_owned(),
-        "x".to_owned(),
-        "x".to_owned(),
-        0.0,
-        0.0,
-        0.0,
-        [0.0, 0.0, 0.0],
-    );
-    add_one(&mut a.borrow_mut());
-    println!("a: {:?}", a);
-}
-
-fn add_one(a: &mut Atom) {
-    a.index += 1;
+    let sys = &mut System::read("tests/simple.sys");
+    let vv = &mut VelocityVerlet::new(0.001);
+    while vv.time < 1_000.0 {
+        vv.step(sys);
+    }
+    println!("{:#?}", *sys)
 }
