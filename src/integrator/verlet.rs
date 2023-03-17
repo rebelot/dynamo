@@ -5,6 +5,7 @@ const DIM: usize = 3;
 pub struct VelocityVerlet {
     pub dt: f64,
     pub time: f64,
+    pub step: i32,
 }
 
 impl VelocityVerlet {
@@ -12,6 +13,7 @@ impl VelocityVerlet {
         VelocityVerlet {
             dt,
             time: 0.0,
+            step: 0,
         }
     }
     pub fn step(&mut self, sys: &mut System) {
@@ -21,7 +23,7 @@ impl VelocityVerlet {
             Self::update_pos(&self.dt, a);
         }
 
-        // self.system.topology.ff.calc();
+        sys.forces.calc(&mut sys.topology.atoms);
 
         for a in sys.topology.atoms.iter_mut() {
             Self::update_vel(&self.dt, a);

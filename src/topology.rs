@@ -1,5 +1,3 @@
-use crate::ffield::Forces;
-
 pub mod atom;
 
 #[derive(Debug)]

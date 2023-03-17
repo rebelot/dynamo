@@ -1,4 +1,5 @@
-use crate::topology::{atom::Atom, Topology};
+use crate::linalg::*;
+use crate::topology::atom::Atom;
 
 const DIM: usize = 3;
 
@@ -14,8 +15,8 @@ impl Forces {
             nonbond: NonBondedPairs::new(),
         }
     }
-    pub fn calc(&mut self, top: &mut Topology) {
-        self.bonded.calc(top);
+    pub fn calc(&mut self, atoms: &mut Vec<Atom>) {
+        self.bonded.calc(atoms);
     }
 }
 
@@ -34,15 +35,15 @@ impl BondedForces {
             dihedrals: Vec::new(),
         }
     }
-    pub fn calc(&mut self, top: &mut Topology) {
+    fn calc(&mut self, atoms: &mut Vec<Atom>) {
         for bond in self.bonds.iter_mut() {
-            bond.calc(top);
+            bond.calc(atoms);
         }
         for angle in self.angles.iter_mut() {
-            angle.calc(top);
+            angle.calc(atoms);
         }
         for dih in self.dihedrals.iter_mut() {
-            dih.calc(top);
+            dih.calc(atoms);
         }
     }
 }
@@ -52,7 +53,6 @@ pub struct Bond {
     k: f64,
     r0: f64,
     atoms: [usize; 2],
-    disp_vec: [f64; DIM],
 }
 
 impl Bond {
@@ -61,30 +61,29 @@ impl Bond {
             k,
             r0,
             atoms,
-            disp_vec: [0.0; DIM],
         }
     }
 
-    fn calc(&mut self, top: &mut Topology) {
-        let rvec = &mut self.disp_vec;
+    fn calc(&mut self, atoms: &mut Vec<Atom>) {
 
-        let avec = &top.atoms[self.atoms[0]].pos;
-        let bvec = &top.atoms[self.atoms[1]].pos;
+        let ri = &atoms[self.atoms[0]].pos;
+        let rj = &atoms[self.atoms[1]].pos;
 
-        displace_vec(avec, bvec, rvec);
-        let r2 = dot(rvec, rvec);
-        let r = r2.sqrt();
+        let rij = displace_vec(ri, rj);
+        let norm2_rij = norm2(&rij);
+        let norm_rij = norm2_rij.sqrt();
 
-        let mut u: f64 = 0.0;
-        let mut f: f64 = 0.0;
-        harmonic(&self.k, &self.r0, &r, &mut u, &mut f);
-        f *= r2.sqrt().recip(); // shoudl optimize for fast invsqrt?
+        let u = &mut 0.0;
+        let f = &mut 0.0;
+        harmonic(&self.k, &self.r0, &norm_rij, u, f);
+        *f *= norm_rij.recip();
+        // *f *= norm2_rij.sqrt().recip(); // will this be faster?
 
-        let mut fbond: f64;
+        let di = &mut 0.0;
         for i in 0..DIM {
-            fbond = f * self.disp_vec[i];
-            top.atoms[self.atoms[0]].force[i] += fbond;
-            top.atoms[self.atoms[1]].force[i] -= fbond;
+            *di = *f * rij[i];
+            atoms[self.atoms[0]].force[i] += *di;
+            atoms[self.atoms[1]].force[i] -= *di;
         }
     }
 }
@@ -94,7 +93,6 @@ pub struct Angle {
     k: f64,
     t0: f64,
     atoms: [usize; 3],
-    disp_vec: [f64; DIM],
 }
 
 impl Angle {
@@ -103,11 +101,40 @@ impl Angle {
             k,
             t0,
             atoms,
-            disp_vec: [0.0; DIM],
         }
     }
-    fn calc(&mut self, top: &mut Topology) {}
+    fn calc(&mut self, atoms: &mut Vec<Atom>) {
+        let ri = &atoms[self.atoms[0]].pos;
+        let rj = &atoms[self.atoms[1]].pos;
+        let rk = &atoms[self.atoms[2]].pos;
 
+        let rij = displace_vec(ri, rj);
+        let rkj = displace_vec(rk, rj);
+
+        let norm_rij_1 = norm2(&rij).sqrt().recip();
+        let norm_rkj_1 = norm2(&rkj).sqrt().recip();
+
+        let norm_rij_rkj_1 = norm_rij_1 * norm_rkj_1;
+
+        let cos_t = dot(&rij, &rkj) * norm_rij_rkj_1;
+        let t = cos_t.acos();
+
+        let u = &mut 0.0;
+        let f = &mut 0.0;
+
+        harmonic(&self.k, &self.t0, &t, u, f);
+
+        *f *= -(1.0 - cos_t * cos_t).sqrt().recip() * norm_rij_rkj_1;
+        let (di, dj, dk) = (&mut 0.0, &mut 0.0, &mut 0.0);
+        for i in 0..DIM {
+            *di = -rkj[i];
+            *dk = -rij[i];
+            *dj = -*di - *dk;
+            atoms[self.atoms[0]].force[i] += *f * *di;
+            atoms[self.atoms[1]].force[i] += *f * *dj;
+            atoms[self.atoms[2]].force[i] += *f * *dk;
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -115,7 +142,6 @@ pub struct Dihedral {
     k: f64,
     t0: f64,
     atoms: [usize; 4],
-    disp_vec: [f64; DIM],
 }
 
 impl Dihedral {
@@ -124,16 +150,36 @@ impl Dihedral {
             k,
             t0,
             atoms,
-            disp_vec: [0.0; DIM],
         }
     }
-    fn calc(&mut self, top: &mut Topology) {}
+    fn calc(&mut self, atoms: &mut Vec<Atom>) {
+        let ri = &atoms[self.atoms[0]].pos;
+        let rj = &atoms[self.atoms[1]].pos;
+        let rk = &atoms[self.atoms[2]].pos;
+        let rl = &atoms[self.atoms[3]].pos;
+
+        let rij = displace_vec(ri, rj);
+        let rjk = displace_vec(rj, rk);
+        let rkl = displace_vec(rk, rl);
+
+        let nijk = cross(&rij, &rjk);
+        let njkl = cross(&rjk, &rkl);
+
+        let t = angle(&nijk, &njkl);
+
+        let u = &mut 0.0;
+        let f = &mut 0.0;
+
+        harmonic(&self.k, &self.t0, &t, u, f);
+
+    }
 }
 
 #[derive(Debug)]
 pub struct NonBondedPairs {
     pub pairs: Vec<LJPair>,
 }
+
 impl NonBondedPairs {
     pub fn new() -> Self {
         Self { pairs: Vec::new() }
@@ -154,17 +200,6 @@ impl LJParams {
 #[derive(Debug)]
 pub struct LJPair {
     pub atoms: [usize; 2],
-}
-
-fn dot(avec: &[f64; DIM], bvec: &[f64; DIM]) -> f64 {
-    return avec.iter().zip(bvec.iter()).map(|(a, b)| a * b).sum();
-}
-
-/// Calculate the displacement vector between two points
-fn displace_vec(avec: &[f64; DIM], bvec: &[f64; DIM], outvec: &mut [f64; DIM]) {
-    for i in 0..DIM {
-        outvec[i] = avec[i] - bvec[i];
-    }
 }
 
 fn harmonic(k: &f64, r0: &f64, r: &f64, u: &mut f64, f: &mut f64) {

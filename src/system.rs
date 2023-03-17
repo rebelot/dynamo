@@ -5,17 +5,17 @@ mod reader;
 pub struct System {
     pub topology: Topology,
     pub forces: Forces,
-    pub r#box: [f64; 3],
+    pub pbc: [f64; 3],
     pub potential: f64,
     pub press: f64,
 }
 
 impl System {
-    pub fn new(topology: Topology, forces: Forces, r#box: [f64; 3]) -> System {
+    pub fn new(topology: Topology, forces: Forces, pbc: [f64; 3]) -> System {
         System {
             topology,
             forces,
-            r#box,
+            pbc,
             potential: 0.0,
             press: 0.0,
         }

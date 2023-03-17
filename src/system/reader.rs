@@ -22,7 +22,7 @@ pub fn read(filename: &str) -> System {
     let mut section = Section::MAIN;
     let mut section_counter = 0;
 
-    let r#box = &mut [0.0, 0.0, 0.0];
+    let pbc = &mut [0.0, 0.0, 0.0];
 
     for line in BufReader::new(f).lines() {
         if let Ok(line) = line {
@@ -102,15 +102,15 @@ pub fn read(filename: &str) -> System {
                             .push(Dihedral::new(k, t0, [a1, a2, a3, a4]))
                     }
                     Section::BOX => {
-                        r#box[0] = fields[0].parse::<f64>().unwrap();
-                        r#box[1] = fields[1].parse::<f64>().unwrap();
-                        r#box[1] = fields[2].parse::<f64>().unwrap();
+                        pbc[0] = fields[0].parse::<f64>().unwrap();
+                        pbc[1] = fields[1].parse::<f64>().unwrap();
+                        pbc[1] = fields[2].parse::<f64>().unwrap();
                     }
                 }
             }
         }
     }
-    return System::new(top, forces, *r#box);
+    return System::new(top, forces, *pbc);
 }
 
 #[cfg(test)]
