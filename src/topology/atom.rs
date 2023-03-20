@@ -13,7 +13,7 @@ pub struct Atom {
     pub mass: f64,
     pub vdw: f64,
     pub charge: f64,
-    pub lj: ffield::LJParams,
+    // pub lj: ffield::LJParams,
 }
 
 impl Atom {
@@ -39,8 +39,7 @@ impl Atom {
             vel: [0.0, 0.0, 0.0],
             force: [0.0, 0.0, 0.0],
             prev_force: [0.0, 0.0, 0.0],
-            lj: ffield::LJParams::new(0.0, 0.0),
+            // lj: ffield::LJParams::new(0.0, 0.0),
         }
     }
 }
-

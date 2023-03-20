@@ -1,7 +1,6 @@
-use crate::{topology::Topology, ffield::Forces};
+use crate::{ffield::Forces, topology::Topology};
 mod reader;
 
-#[derive(Debug)]
 pub struct System {
     pub topology: Topology,
     pub forces: Forces,

@@ -10,11 +10,12 @@ pub struct TrajectoryWriter {
 }
 
 impl TrajectoryWriter {
-    pub fn new(filename: &str, interval: i32) -> Self {
+    pub fn new(filename: &str, interval: i32, append: bool) -> Self {
         Self {
             file: OpenOptions::new()
-                .append(true)
                 .create(true)
+                .write(true)
+                .append(append)
                 .open(filename)
                 .unwrap(),
             interval,
@@ -24,15 +25,24 @@ impl TrajectoryWriter {
         if step % self.interval != 0 {
             return;
         }
-        let mut pos = Vec::new();
-        for a in system.topology.atoms.iter() {
-            pos.push(a.pos[0].to_string());
-            pos.push(a.pos[1].to_string());
-            pos.push(a.pos[2].to_string());
-        }
 
-        if let Err(e) = writeln!(self.file, "{} {}", time, pos.join(" ")) {
+        let blob = system
+            .topology
+            .atoms
+            .iter()
+            .map(|a| {
+                a.pos
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            })
+            .collect::<Vec<String>>()
+            .join(" ");
+
+        if let Err(e) = writeln!(self.file, "{} {}", time, blob) {
             eprintln!("Couldn't write to file: {}", e);
         }
+        self.file.flush().unwrap();
     }
 }
