@@ -96,10 +96,11 @@ pub fn read(filename: &str) -> System {
                         let a4 = fields[3].parse::<usize>().unwrap();
                         let k = fields[4].parse::<f64>().unwrap();
                         let t0 = fields[5].parse::<f64>().unwrap();
+                        let n = fields[6].parse::<f64>().unwrap();
                         forces
                             .bonded
                             .dihedrals
-                            .push(Dihedral::new(k, t0, [a1, a2, a3, a4]))
+                            .push(Dihedral::new(k, t0, n, [a1, a2, a3, a4]))
                     }
                     Section::BOX => {
                         pbc[0] = fields[0].parse::<f64>().unwrap();
