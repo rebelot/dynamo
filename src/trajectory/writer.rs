@@ -30,13 +30,7 @@ impl TrajectoryWriter {
             .topology
             .atoms
             .iter()
-            .map(|a| {
-                a.pos
-                    .iter()
-                    .map(|p| p.to_string())
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            })
+            .flat_map(|a| a.pos.iter().map(|p| p.to_string()))
             .collect::<Vec<String>>()
             .join(" ");
 

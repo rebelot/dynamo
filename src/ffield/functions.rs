@@ -1,6 +1,6 @@
 use crate::linalg::*;
 
-const DIM: usize = 3;
+use crate::{Rvec, DIM};
 
 fn harmonic(k: &f64, x0: &f64, x: &f64) -> (f64, f64) {
     let dx = x - x0;
@@ -13,7 +13,7 @@ fn periodic(k: &f64, n: &f64, x0: &f64, x: &f64) -> (f64, f64) {
     return (k * (1.0 + dx.cos()), k * n * dx.sin());
 }
 
-pub fn bond_harm(k: &f64, r0: &f64, [ri, rj]: [&[f64; DIM]; 2]) -> (f64, [[f64; DIM]; 2]) {
+pub fn bond_harm(k: &f64, r0: &f64, [ri, rj]: [&Rvec; 2]) -> (f64, [Rvec; 2]) {
     let rij = displace_vec(ri, rj);
     let norm2_rij = norm2(&rij);
     let norm_rij = norm2_rij.sqrt();
@@ -32,7 +32,7 @@ pub fn bond_harm(k: &f64, r0: &f64, [ri, rj]: [&[f64; DIM]; 2]) -> (f64, [[f64; 
     return (u, fvec);
 }
 
-pub fn angle_harm(k: &f64, t0: &f64, [ri, rj, rk]: [&[f64; DIM]; 3]) -> (f64, [[f64; DIM]; 3]) {
+pub fn angle_harm(k: &f64, t0: &f64, [ri, rj, rk]: [&Rvec; 3]) -> (f64, [Rvec; 3]) {
     let rji = displace_vec(rj, ri);
     let rjk = displace_vec(rj, rk);
 
@@ -58,7 +58,7 @@ pub fn angle_harm(k: &f64, t0: &f64, [ri, rj, rk]: [&[f64; DIM]; 3]) -> (f64, [[
     return (u, fvec);
 }
 
-pub fn drdpsi([ri, rj, rk, rl]: &[&[f64; DIM]; 4]) -> (f64, [[f64; DIM]; 4]) {
+pub fn drdpsi([ri, rj, rk, rl]: &[&Rvec; 4]) -> (f64, [Rvec; 4]) {
     let rij = displace_vec(ri, rj);
     let rjk = displace_vec(rj, rk);
     let rkl = displace_vec(rk, rl);
@@ -91,7 +91,7 @@ pub fn drdpsi([ri, rj, rk, rl]: &[&[f64; DIM]; 4]) -> (f64, [[f64; DIM]; 4]) {
     return (psi, fvec);
 }
 
-pub fn pdih(k: &f64, n: &f64, p0: &f64, coords: [&[f64; DIM]; 4]) -> (f64, [[f64; DIM]; 4]) {
+pub fn pdih(k: &f64, n: &f64, p0: &f64, coords: [&Rvec; 4]) -> (f64, [Rvec; 4]) {
     let (psi, mut fvec) = drdpsi(&coords);
     let (u, f) = periodic(k, n, p0, &psi);
     for i in 0..DIM {
@@ -103,7 +103,7 @@ pub fn pdih(k: &f64, n: &f64, p0: &f64, coords: [&[f64; DIM]; 4]) -> (f64, [[f64
     return (u, fvec);
 }
 
-pub fn idih_harm(k: &f64, p0: &f64, coords: [&[f64; DIM]; 4]) -> (f64, [[f64; DIM]; 4]) {
+pub fn idih_harm(k: &f64, p0: &f64, coords: [&Rvec; 4]) -> (f64, [Rvec; 4]) {
     let (psi, mut fvec) = drdpsi(&coords);
     let (u, f) = harmonic(k, p0, &psi);
     for i in 0..DIM {

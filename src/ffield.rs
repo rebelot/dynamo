@@ -1,13 +1,12 @@
 use crate::topology::atom::Atom;
+use crate::{Rvec, DIM};
 
 mod functions;
 
-const DIM: usize = 3;
-
 pub struct Forces {
-    pub bonds: Vec<Box<dyn Interaction>>,
-    pub angles: Vec<Box<dyn Interaction>>,
-    pub torsions: Vec<Box<dyn Interaction>>,
+    pub bonds: Vec<Box<dyn BondedInteraction>>,
+    pub angles: Vec<Box<dyn AngleInteraction>>,
+    pub torsions: Vec<Box<dyn TorsionInteraction>>,
 }
 
 impl Forces {
@@ -20,20 +19,55 @@ impl Forces {
     }
 
     pub fn calc(&mut self, atoms: &mut Vec<Atom>) {
-        for b in self.bonds.iter() {
-            b.calc(atoms);
-        }
-        for a in self.angles.iter() {
-            a.calc(atoms);
-        }
-        for t in self.torsions.iter() {
-            t.calc(atoms);
-        }
+        self.bonds.iter().for_each(|i| {
+            let [a1, a2] = i.atoms();
+            let (u, f) = i.calc(&atoms[a1].pos, &atoms[a2].pos);
+
+            for i in 0..DIM {
+                atoms[a1].force[i] += f[0][i];
+                atoms[a2].force[i] += f[1][i];
+            }
+        });
+        self.angles.iter().for_each(|i| {
+            let [a1, a2, a3] = i.atoms();
+            let (u, f) = i.calc(&atoms[a1].pos, &atoms[a2].pos, &atoms[a3].pos);
+            for i in 0..DIM {
+                atoms[a1].force[i] += f[0][i];
+                atoms[a2].force[i] += f[1][i];
+                atoms[a3].force[i] += f[2][i];
+            }
+        });
+        self.torsions.iter().for_each(|i| {
+            let [a1, a2, a3, a4] = i.atoms();
+            let (u, f) = i.calc(
+                &atoms[a1].pos,
+                &atoms[a2].pos,
+                &atoms[a3].pos,
+                &atoms[a4].pos,
+            );
+            for i in 0..DIM {
+                atoms[a1].force[i] += f[0][i];
+                atoms[a2].force[i] += f[1][i];
+                atoms[a3].force[i] += f[2][i];
+                atoms[a4].force[i] += f[3][i];
+            }
+        });
     }
 }
 
-pub trait Interaction {
-    fn calc(&self, atoms: &mut Vec<Atom>);
+pub trait BondedInteraction {
+    fn calc(&self, ri: &Rvec, rj: &Rvec) -> (f64, [Rvec; 2]);
+    fn atoms(&self) -> [usize; 2];
+}
+
+pub trait AngleInteraction {
+    fn calc(&self, ri: &Rvec, rj: &Rvec, rk: &Rvec) -> (f64, [Rvec; 3]);
+    fn atoms(&self) -> [usize; 3];
+}
+
+pub trait TorsionInteraction {
+    fn calc(&self, ri: &Rvec, rj: &Rvec, rk: &Rvec, rl: &Rvec) -> (f64, [Rvec; 4]);
+    fn atoms(&self) -> [usize; 4];
 }
 
 pub struct BondHarmonic {
@@ -48,16 +82,12 @@ impl BondHarmonic {
     }
 }
 
-impl Interaction for BondHarmonic {
-    fn calc(&self, atoms: &mut Vec<Atom>) {
-        let r = [&atoms[self.atoms[0]].pos, &atoms[self.atoms[1]].pos];
-
-        let (u, f) = functions::bond_harm(&self.k, &self.r0, r);
-
-        for i in 0..DIM {
-            atoms[self.atoms[0]].force[i] += f[0][i];
-            atoms[self.atoms[1]].force[i] += f[1][i];
-        }
+impl BondedInteraction for BondHarmonic {
+    fn calc(&self, ri: &Rvec, rj: &Rvec) -> (f64, [Rvec; 2]) {
+        functions::bond_harm(&self.k, &self.r0, [ri, rj])
+    }
+    fn atoms(&self) -> [usize; 2] {
+        self.atoms
     }
 }
 
@@ -73,21 +103,12 @@ impl AngleHarmonic {
     }
 }
 
-impl Interaction for AngleHarmonic {
-    fn calc(&self, atoms: &mut Vec<Atom>) {
-        let r = [
-            &atoms[self.atoms[0]].pos,
-            &atoms[self.atoms[1]].pos,
-            &atoms[self.atoms[2]].pos,
-        ];
-
-        let (u, f) = functions::angle_harm(&self.k, &self.t0, r);
-
-        for i in 0..DIM {
-            atoms[self.atoms[0]].force[i] += f[0][i];
-            atoms[self.atoms[1]].force[i] += f[1][i];
-            atoms[self.atoms[2]].force[i] += f[2][i];
-        }
+impl AngleInteraction for AngleHarmonic {
+    fn calc(&self, ri: &Rvec, rj: &Rvec, rk: &Rvec) -> (f64, [Rvec; 3]) {
+        functions::angle_harm(&self.k, &self.t0, [ri, rj, rk])
+    }
+    fn atoms(&self) -> [usize; 3] {
+        self.atoms
     }
 }
 
@@ -104,23 +125,12 @@ impl DihedralPeriodic {
     }
 }
 
-impl Interaction for DihedralPeriodic {
-    fn calc(&self, atoms: &mut Vec<Atom>) {
-        let r = [
-            &atoms[self.atoms[0]].pos,
-            &atoms[self.atoms[1]].pos,
-            &atoms[self.atoms[2]].pos,
-            &atoms[self.atoms[3]].pos,
-        ];
-
-        let (u, f) = functions::pdih(&self.k, &self.n, &self.p0, r);
-
-        for i in 0..DIM {
-            atoms[self.atoms[0]].force[i] += f[0][i];
-            atoms[self.atoms[1]].force[i] += f[1][i];
-            atoms[self.atoms[2]].force[i] += f[2][i];
-            atoms[self.atoms[2]].force[i] += f[2][i];
-        }
+impl TorsionInteraction for DihedralPeriodic {
+    fn calc(&self, ri: &Rvec, rj: &Rvec, rk: &Rvec, rl: &Rvec) -> (f64, [Rvec; 4]) {
+        functions::pdih(&self.k, &self.n, &self.p0, [ri, rj, rk, rl])
+    }
+    fn atoms(&self) -> [usize; 4] {
+        self.atoms
     }
 }
 
@@ -136,23 +146,12 @@ impl ImproperDihedralHarmonic {
     }
 }
 
-impl Interaction for ImproperDihedralHarmonic {
-    fn calc(&self, atoms: &mut Vec<Atom>) {
-        let r = [
-            &atoms[self.atoms[0]].pos,
-            &atoms[self.atoms[1]].pos,
-            &atoms[self.atoms[2]].pos,
-            &atoms[self.atoms[3]].pos,
-        ];
-
-        let (u, f) = functions::idih_harm(&self.k, &self.p0, r);
-
-        for i in 0..DIM {
-            atoms[self.atoms[0]].force[i] += f[0][i];
-            atoms[self.atoms[1]].force[i] += f[1][i];
-            atoms[self.atoms[2]].force[i] += f[2][i];
-            atoms[self.atoms[2]].force[i] += f[2][i];
-        }
+impl TorsionInteraction for ImproperDihedralHarmonic {
+    fn calc(&self, ri: &Rvec, rj: &Rvec, rk: &Rvec, rl: &Rvec) -> (f64, [Rvec; 4]) {
+        functions::idih_harm(&self.k, &self.p0, [ri, rj, rk, rl])
+    }
+    fn atoms(&self) -> [usize; 4] {
+        self.atoms
     }
 }
 

@@ -8,3 +8,6 @@ pub mod trajectory {
 pub mod integrator {
     pub mod verlet;
 }
+
+pub const DIM: usize = 3;
+pub type Rvec = [f64; DIM];
