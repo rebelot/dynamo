@@ -1,15 +1,13 @@
-use crate::{system::System, topology::atom::Atom};
-
-const DIM: usize = 3;
+use crate::{DIM, system::System, topology::atom::Atom};
 
 pub struct VelocityVerlet {
-    pub dt: f64,
-    pub time: f64,
+    pub dt: f32,
+    pub time: f32,
     pub step: i32,
 }
 
 impl VelocityVerlet {
-    pub fn new(dt: f64) -> VelocityVerlet {
+    pub fn new(dt: f32) -> VelocityVerlet {
         VelocityVerlet {
             dt,
             time: 0.0,
@@ -32,13 +30,13 @@ impl VelocityVerlet {
         sys.topology.init_forces();
     }
 
-    fn update_pos(dt: &f64, a: &mut Atom) {
+    fn update_pos(dt: &f32, a: &mut Atom) {
         for i in 0..DIM {
             a.pos[i] += a.vel[i] * dt + 0.5 * a.prev_force[i] / a.mass * dt * dt;
         }
     }
 
-    fn update_vel(dt: &f64, a: &mut Atom) {
+    fn update_vel(dt: &f32, a: &mut Atom) {
         for i in 0..DIM {
             a.vel[i] += 0.5 * (a.force[i] + a.prev_force[i]) / a.mass * dt;
         }

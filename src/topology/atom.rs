@@ -1,4 +1,5 @@
 use crate::ffield;
+use crate::Rvec;
 
 #[derive(Debug)]
 pub struct Atom {
@@ -6,13 +7,13 @@ pub struct Atom {
     pub atomtype: String,
     pub name: String,
     pub element: String,
-    pub pos: [f64; 3],
-    pub vel: [f64; 3],
-    pub force: [f64; 3],
-    pub prev_force: [f64; 3],
-    pub mass: f64,
-    pub vdw: f64,
-    pub charge: f64,
+    pub pos: Rvec,
+    pub vel: Rvec,
+    pub force: Rvec,
+    pub prev_force: Rvec,
+    pub mass: f32,
+    pub vdw: f32,
+    pub charge: f32,
     // pub lj: ffield::LJParams,
 }
 
@@ -22,10 +23,10 @@ impl Atom {
         atomtype: String,
         name: String,
         element: String,
-        mass: f64,
-        vdw: f64,
-        charge: f64,
-        pos: [f64; 3],
+        mass: f32,
+        vdw: f32,
+        charge: f32,
+        pos: Rvec,
     ) -> Atom {
         Atom {
             index,

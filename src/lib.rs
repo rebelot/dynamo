@@ -10,4 +10,4 @@ pub mod integrator {
 }
 
 pub const DIM: usize = 3;
-pub type Rvec = [f64; DIM];
+pub type Rvec = [f32; DIM];

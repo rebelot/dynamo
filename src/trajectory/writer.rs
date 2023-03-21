@@ -21,7 +21,7 @@ impl TrajectoryWriter {
             interval,
         }
     }
-    pub fn write(&mut self, system: &System, step: &i32, time: &f64) {
+    pub fn write(&mut self, system: &System, step: &i32, time: &f32) {
         if step % self.interval != 0 {
             return;
         }

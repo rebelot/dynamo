@@ -64,34 +64,34 @@ pub fn read(filename: &str) -> System {
                         let atomtype = fields[0].to_string();
                         let name = fields[1].to_string();
                         let element = fields[2].to_string();
-                        let mass = fields[3].parse::<f64>().unwrap();
-                        let vdw = fields[4].parse::<f64>().unwrap();
-                        let charge = fields[5].parse::<f64>().unwrap();
-                        let x = fields[6].parse::<f64>().unwrap();
-                        let y = fields[7].parse::<f64>().unwrap();
-                        let z = fields[8].parse::<f64>().unwrap();
+                        let mass = fields[3].parse::<f32>().unwrap();
+                        let vdw = fields[4].parse::<f32>().unwrap();
+                        let charge = fields[5].parse::<f32>().unwrap();
+                        let x = fields[6].parse::<f32>().unwrap();
+                        let y = fields[7].parse::<f32>().unwrap();
+                        let z = fields[8].parse::<f32>().unwrap();
                         top.add_atom(atomtype, name, element, mass, vdw, charge, [x, y, z]);
                     }
                     Section::NONBOND => {
                         let a = fields[0].parse::<usize>().unwrap();
-                        let c12 = fields[1].parse::<f64>().unwrap();
-                        let c6 = fields[2].parse::<f64>().unwrap();
+                        let c12 = fields[1].parse::<f32>().unwrap();
+                        let c6 = fields[2].parse::<f32>().unwrap();
                         // top.atoms[a].lj.c12 = c12;
                         // top.atoms[a].lj.c6 = c6;
                     }
                     Section::BOND => {
                         let a1 = fields[0].parse::<usize>().unwrap();
                         let a2 = fields[1].parse::<usize>().unwrap();
-                        let k = fields[2].parse::<f64>().unwrap();
-                        let r0 = fields[3].parse::<f64>().unwrap();
+                        let k = fields[2].parse::<f32>().unwrap();
+                        let r0 = fields[3].parse::<f32>().unwrap();
                         forces.bonds.push(BondHarmonic::new(k, r0, [a1, a2]))
                     }
                     Section::ANGLE => {
                         let a1 = fields[0].parse::<usize>().unwrap();
                         let a2 = fields[1].parse::<usize>().unwrap();
                         let a3 = fields[2].parse::<usize>().unwrap();
-                        let k = fields[3].parse::<f64>().unwrap();
-                        let t0 = fields[4].parse::<f64>().unwrap();
+                        let k = fields[3].parse::<f32>().unwrap();
+                        let t0 = fields[4].parse::<f32>().unwrap();
                         forces.angles.push(AngleHarmonic::new(k, t0, [a1, a2, a3]))
                     }
                     Section::DIHEDRAL => {
@@ -99,17 +99,17 @@ pub fn read(filename: &str) -> System {
                         let a2 = fields[1].parse::<usize>().unwrap();
                         let a3 = fields[2].parse::<usize>().unwrap();
                         let a4 = fields[3].parse::<usize>().unwrap();
-                        let k = fields[4].parse::<f64>().unwrap();
-                        let p0 = fields[5].parse::<f64>().unwrap();
-                        let n = fields[6].parse::<f64>().unwrap();
+                        let k = fields[4].parse::<f32>().unwrap();
+                        let p0 = fields[5].parse::<f32>().unwrap();
+                        let n = fields[6].parse::<f32>().unwrap();
                         forces
                             .torsions
                             .push(DihedralPeriodic::new(k, p0, n, [a1, a2, a3, a4]))
                     }
                     Section::BOX => {
-                        pbc[0] = fields[0].parse::<f64>().unwrap();
-                        pbc[1] = fields[1].parse::<f64>().unwrap();
-                        pbc[1] = fields[2].parse::<f64>().unwrap();
+                        pbc[0] = fields[0].parse::<f32>().unwrap();
+                        pbc[1] = fields[1].parse::<f32>().unwrap();
+                        pbc[1] = fields[2].parse::<f32>().unwrap();
                     }
                 }
             }

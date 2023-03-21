@@ -2,28 +2,30 @@ use crate::linalg::*;
 
 use crate::{Rvec, DIM};
 
-fn harmonic(k: &f64, x0: &f64, x: &f64) -> (f64, f64) {
+#[inline]
+fn harmonic(k: f32, x0: f32, x: f32) -> (f32, f32) {
     let dx = x - x0;
     let kdx = k * dx;
     return (0.5 * kdx * dx, -kdx);
 }
 
-fn periodic(k: &f64, n: &f64, x0: &f64, x: &f64) -> (f64, f64) {
+#[inline]
+fn periodic(k: f32, n: f32, x0: f32, x: f32) -> (f32, f32) {
     let dx = x * n - x0;
     return (k * (1.0 + dx.cos()), k * n * dx.sin());
 }
 
-pub fn bond_harm(k: &f64, r0: &f64, [ri, rj]: [&Rvec; 2]) -> (f64, [Rvec; 2]) {
+pub fn bond_harm(k: f32, r0: f32, ri: &Rvec, rj: &Rvec) -> (f32, [Rvec; 2]) {
     let rij = displace_vec(ri, rj);
     let norm2_rij = norm2(&rij);
     let norm_rij = norm2_rij.sqrt();
 
-    let (u, mut f) = harmonic(k, r0, &norm_rij);
+    let (u, mut f) = harmonic(k, r0, norm_rij);
     f *= norm_rij.recip();
     // *f *= norm2_rij.sqrt().recip(); // will this be faster?
 
     let mut fvec = [[0.0; DIM]; 2];
-    let mut dri: f64;
+    let mut dri: f32;
     for i in 0..DIM {
         dri = f * -rij[i];
         fvec[0][i] = dri;
@@ -32,7 +34,7 @@ pub fn bond_harm(k: &f64, r0: &f64, [ri, rj]: [&Rvec; 2]) -> (f64, [Rvec; 2]) {
     return (u, fvec);
 }
 
-pub fn angle_harm(k: &f64, t0: &f64, [ri, rj, rk]: [&Rvec; 3]) -> (f64, [Rvec; 3]) {
+pub fn angle_harm(k: f32, t0: f32, ri: &Rvec, rj: &Rvec, rk: &Rvec) -> (f32, [Rvec; 3]) {
     let rji = displace_vec(rj, ri);
     let rjk = displace_vec(rj, rk);
 
@@ -41,12 +43,12 @@ pub fn angle_harm(k: &f64, t0: &f64, [ri, rj, rk]: [&Rvec; 3]) -> (f64, [Rvec; 3
     let cos_t = dot(&rji, &rjk) * norm_rji_rjk_1;
     let t = cos_t.acos();
 
-    let (u, mut f) = harmonic(k, t0, &t);
+    let (u, mut f) = harmonic(k, t0, t);
 
     f *= -(1.0 - cos_t * cos_t).sqrt().recip() * norm_rji_rjk_1;
 
     let mut fvec = [[0.0; DIM]; 3];
-    let [mut dri, mut drj, mut drk]: [f64; 3];
+    let [mut dri, mut drj, mut drk]: [f32; 3];
     for i in 0..DIM {
         dri = f * rjk[i];
         drk = f * rji[i];
@@ -58,7 +60,8 @@ pub fn angle_harm(k: &f64, t0: &f64, [ri, rj, rk]: [&Rvec; 3]) -> (f64, [Rvec; 3
     return (u, fvec);
 }
 
-pub fn drdpsi([ri, rj, rk, rl]: &[&Rvec; 4]) -> (f64, [Rvec; 4]) {
+#[inline]
+pub fn drdpsi(ri: &Rvec, rj: &Rvec, rk: &Rvec, rl: &Rvec) -> (f32, [Rvec; 4]) {
     let rij = displace_vec(ri, rj);
     let rjk = displace_vec(rj, rk);
     let rkl = displace_vec(rk, rl);
@@ -78,7 +81,7 @@ pub fn drdpsi([ri, rj, rk, rl]: &[&Rvec; 4]) -> (f64, [Rvec; 4]) {
     let dnjkl_drkl = [rjk[1] - rjk[2], rjk[2] - rjk[0], rjk[0] - rjk[1]];
 
     let mut fvec = [[0.0; DIM]; 4];
-    let [mut drij, mut drjk, mut drkl]: [f64; 3];
+    let [mut drij, mut drjk, mut drkl]: [f32; 3];
     for i in 0..DIM {
         drij = f * njkl[i] * dnijk_drij[i];
         drjk = f * (njkl[i] * dnijk_drjk[i] + nijk[i] * dnjkl_drjk[i]);
@@ -91,9 +94,9 @@ pub fn drdpsi([ri, rj, rk, rl]: &[&Rvec; 4]) -> (f64, [Rvec; 4]) {
     return (psi, fvec);
 }
 
-pub fn pdih(k: &f64, n: &f64, p0: &f64, coords: [&Rvec; 4]) -> (f64, [Rvec; 4]) {
-    let (psi, mut fvec) = drdpsi(&coords);
-    let (u, f) = periodic(k, n, p0, &psi);
+pub fn pdih(k: f32, n: f32, p0: f32, ri: &Rvec, rj: &Rvec, rk: &Rvec, rl: &Rvec) -> (f32, [Rvec; 4]) {
+    let (psi, mut fvec) = drdpsi(ri, rj, rk, rl);
+    let (u, f) = periodic(k, n, p0, psi);
     for i in 0..DIM {
         fvec[0][i] *= f;
         fvec[1][i] *= f;
@@ -103,9 +106,9 @@ pub fn pdih(k: &f64, n: &f64, p0: &f64, coords: [&Rvec; 4]) -> (f64, [Rvec; 4]) 
     return (u, fvec);
 }
 
-pub fn idih_harm(k: &f64, p0: &f64, coords: [&Rvec; 4]) -> (f64, [Rvec; 4]) {
-    let (psi, mut fvec) = drdpsi(&coords);
-    let (u, f) = harmonic(k, p0, &psi);
+pub fn idih_harm(k: f32, p0: f32, ri: &Rvec, rj: &Rvec, rk: &Rvec, rl: &Rvec) -> (f32, [Rvec; 4]) {
+    let (psi, mut fvec) = drdpsi(ri, rj, rk, rl);
+    let (u, f) = harmonic(k, p0, psi);
     for i in 0..DIM {
         fvec[0][i] *= f;
         fvec[1][i] *= f;
