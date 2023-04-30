@@ -5,17 +5,17 @@ use crate::{Rvec, DIM};
 
 #[inline]
 pub fn dot(avec: &Rvec, bvec: &Rvec) -> f32 {
-    return avec[0] * bvec[0] + avec[1] * bvec[1] + avec[2] * bvec[2];
+    avec[0] * bvec[0] + avec[1] * bvec[1] + avec[2] * bvec[2]
     // return avec.iter().zip(bvec.iter()).map(|(a, b)| a * b).sum();
 }
 
 #[inline]
 pub fn cross(avec: &Rvec, bvec: &Rvec) -> Rvec {
-    return [
+    [
         avec[1] * bvec[2] - avec[2] * bvec[1],
         avec[2] * bvec[0] - avec[0] * bvec[2],
         avec[0] * bvec[1] - avec[1] * bvec[0],
-    ];
+    ]
 }
 
 // pub fn angle(avec: &Rvec, bvec: &Rvec) -> f32 {
@@ -25,8 +25,8 @@ pub fn cross(avec: &Rvec, bvec: &Rvec) -> Rvec {
 // }
 
 #[inline]
-pub fn norm2(vec: &[f32; DIM]) -> f32 {
-    return dot(vec, vec);
+pub fn norm2(vec: &Rvec) -> f32 {
+    dot(vec, vec)
 }
 
 #[inline]
@@ -39,7 +39,7 @@ pub fn min_image<'a>(vec: &'a mut Rvec, pbc: &Rvec) -> &'a Rvec {
             vec[i] += pbc[i];
         }
     }
-    return vec;
+    vec
 }
 
 #[inline]
@@ -47,16 +47,19 @@ pub fn wrap<'a>(vec: &'a mut Rvec, pbc: &Rvec) -> &'a Rvec {
     for i in 0..DIM {
         vec[i] %= pbc[i];
     }
-    return vec;
+    vec
 }
 
 #[inline]
 pub fn displace_vec(avec: &Rvec, bvec: &Rvec) -> Rvec {
     let mut cvec = [0.0; DIM];
-    for i in 0..DIM {
-        cvec[i] = bvec[i] - avec[i];
-    }
-    return cvec;
+    // for i in 0..DIM {
+    //     cvec[i] = bvec[i] - avec[i];
+    // }
+    cvec.iter_mut()
+        .zip(avec.iter().zip(bvec.iter()))
+        .for_each(|(c, (a, b))| *c = b - a);
+    cvec
 }
 
 // Iterator that return the indices (i, j) corresponding to elements

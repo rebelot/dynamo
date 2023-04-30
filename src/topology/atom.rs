@@ -1,20 +1,25 @@
-use crate::ffield;
-use crate::Rvec;
-
 #[derive(Debug)]
+pub struct AtomTypeParams {
+    pub element: u32,
+    pub mass: f32,
+    pub v: f32,
+    pub w: f32,
+}
+
+#[derive(Debug, Clone)]
+// Stores particle information
 pub struct Atom {
     pub index: usize,
+    pub resname: String,
+    pub resnum: usize,
     pub atomtype: String,
     pub name: String,
-    pub element: String,
-    pub pos: Rvec,
-    pub vel: Rvec,
-    pub force: Rvec,
-    pub prev_force: Rvec,
+    pub element: u32,
     pub mass: f32,
-    pub vdw: f32,
     pub charge: f32,
-    // pub lj: ffield::LJParams,
+    pub v: f32,
+    pub w: f32,
+    pub excluded: Vec<usize>,
 }
 
 impl Atom {
@@ -22,25 +27,26 @@ impl Atom {
         index: usize,
         atomtype: String,
         name: String,
-        element: String,
+        resnum: usize,
+        resname: String,
+        element: u32,
         mass: f32,
-        vdw: f32,
         charge: f32,
-        pos: Rvec,
+        v: f32,
+        w: f32,
     ) -> Atom {
         Atom {
             index,
+            resnum,
+            resname,
             atomtype,
             name,
             element,
             mass,
-            vdw,
             charge,
-            pos,
-            vel: [0.0, 0.0, 0.0],
-            force: [0.0, 0.0, 0.0],
-            prev_force: [0.0, 0.0, 0.0],
-            // lj: ffield::LJParams::new(0.0, 0.0),
+            v,
+            w,
+            excluded: Vec::new(),
         }
     }
 }

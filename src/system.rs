@@ -1,12 +1,11 @@
-use crate::{Rvec, ffield::Forces, topology::Topology};
-mod reader;
+use crate::{ffield::Forces, topology::Topology, Rvec};
 
 pub struct System {
     pub topology: Topology,
     pub forces: Forces,
     pub pbc: Rvec,
-    pub potential: f64,
-    pub press: f64,
+    pub potential: f32,
+    pub press: f32,
 }
 
 impl System {
@@ -18,8 +17,5 @@ impl System {
             potential: 0.0,
             press: 0.0,
         }
-    }
-    pub fn read(filename: &str) -> Self {
-        return reader::read(filename);
     }
 }

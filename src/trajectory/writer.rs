@@ -3,6 +3,7 @@ use std::fs::OpenOptions;
 use std::io::prelude::*;
 
 use crate::system::System;
+use crate::Rvec;
 
 pub struct TrajectoryWriter {
     file: File,
@@ -21,16 +22,14 @@ impl TrajectoryWriter {
             interval,
         }
     }
-    pub fn write(&mut self, system: &System, step: &i32, time: &f32) {
+    pub fn write(&mut self, positions: &[Rvec], step: &i32, time: &f32) {
         if step % self.interval != 0 {
             return;
         }
 
-        let blob = system
-            .topology
-            .atoms
+        let blob = positions
             .iter()
-            .flat_map(|a| a.pos.iter().map(|p| p.to_string()))
+            .flat_map(|xyz| xyz.map(|p| p.to_string()))
             .collect::<Vec<String>>()
             .join(" ");
 
