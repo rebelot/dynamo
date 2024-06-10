@@ -1,88 +1,137 @@
+use crate::linalg::DEG2RAD;
+use std::ops::Index;
+
 // use crate::topology::atom::Atom;
-use crate::{Rvec, DIM};
+use crate::{
+    topology::{atom::Atom, molecule::Molecule, Topology},
+    Rvec, DIM,
+};
 // use rayon::prelude::*;
 
 mod functions;
 
 pub struct Forces {
-    pub bonds: Vec<Box<dyn BondedInteraction + Send + Sync>>,
-    pub angles: Vec<Box<dyn AngleInteraction + Send + Sync>>,
-    pub torsions: Vec<Box<dyn TorsionInteraction + Send + Sync>>,
-    pub pairs: Vec<Box<dyn BondedInteraction + Send + Sync>>,
-}
-
-impl Default for Forces {
-    fn default() -> Self {
-        Forces::new()
-    }
+    pub bonds: Vec<Box<dyn TwoAtomInteraction + Send + Sync>>,
+    pub angles: Vec<Box<dyn ThreeAtomInteraction + Send + Sync>>,
+    pub torsions: Vec<Box<dyn FourAtomInteraction + Send + Sync>>,
+    pub pairs: Vec<Box<dyn TwoAtomInteraction + Send + Sync>>,
+    comb_rule: fn(f32, f32, f32, f32) -> (f32, f32),
+    qqscale: f32,
+    ljscale: f32,
 }
 
 impl Forces {
-    pub fn new() -> Forces {
-        Forces {
+    #[allow(clippy::unnecessary_operation)]
+    pub fn new(top: &Topology) -> Forces {
+        let mut ff = Forces {
             bonds: Vec::new(),
             angles: Vec::new(),
             torsions: Vec::new(),
             pairs: Vec::new(),
+            comb_rule: match top.defaults.comb_rule.as_str() {
+                "geom" => functions::comb_rule_geom,
+                "LB" => functions::comb_rule_LB,
+                wtf => panic!("Unknown combination rule: {}", wtf),
+            },
+            qqscale: top.defaults.qqscale.unwrap_or(1.0),
+            ljscale: top.defaults.ljscale.unwrap_or(1.0),
+        };
+        ff.build(top);
+        ff
+    }
+
+    fn build(&mut self, top: &Topology) {
+        let mut off = 0;
+        for mol in &top.molecules {
+            let natoms = mol.atoms.len();
+            for _ in 0..mol.nmols {
+                for interaction in &mol.bonded_interactions {
+                    self.parse_interaction(mol, interaction, off);
+                }
+                off += natoms;
+            }
         }
     }
-    pub fn parse_interaction(&mut self, interaction: (String, Vec<f32>), offset: usize) {
-        match interaction.0.as_str() {
+
+    fn parse_interaction(&mut self, mol: &Molecule, interaction: &str, offset: usize) {
+        let fields = interaction.split_whitespace().collect::<Vec<&str>>();
+        let funct = fields[0];
+        let params = &fields[1..];
+        match funct {
             "bond_harm" => {
                 let mut atoms: [usize; 2] = [0, 0];
-                interaction.1[..2]
+                params[..2]
                     .iter()
                     .enumerate()
-                    .for_each(|(i, x)| atoms[i] = *x as usize + offset);
-                let k = interaction.1[2];
-                let r0 = interaction.1[3];
+                    .for_each(|(i, x)| atoms[i] = x.parse::<usize>().unwrap() + offset - 1);
+                let r0 = params[2].parse::<f32>().unwrap();
+                let k = params[3].parse::<f32>().unwrap();
                 self.bonds.push(BondHarmonic::new(k, r0, atoms));
             }
+
             "angle_harm" => {
                 let mut atoms: [usize; 3] = [0, 0, 0];
-                interaction.1[..3]
+                params[..3]
                     .iter()
                     .enumerate()
-                    .for_each(|(i, x)| atoms[i] = *x as usize + offset);
-                let k = interaction.1[3];
-                let t0 = interaction.1[4];
+                    .for_each(|(i, x)| atoms[i] = x.parse::<usize>().unwrap() + offset - 1);
+                let t0 = params[3].parse::<f32>().unwrap() * DEG2RAD;
+                let k = params[4].parse::<f32>().unwrap();
                 self.angles.push(AngleHarmonic::new(k, t0, atoms));
             }
 
             "pdih" => {
                 let mut atoms: [usize; 4] = [0, 0, 0, 0];
-                interaction.1[..4]
+                params[..4]
                     .iter()
                     .enumerate()
-                    .for_each(|(i, x)| atoms[i] = *x as usize + offset);
-                let k = interaction.1[4];
-                let n = interaction.1[5];
-                let p0 = interaction.1[6];
+                    .for_each(|(i, x)| atoms[i] = x.parse::<usize>().unwrap() + offset - 1);
+                let p0 = params[4].parse::<f32>().unwrap() * DEG2RAD;
+                let k = params[5].parse::<f32>().unwrap();
+                let n = params[6].parse::<f32>().unwrap();
                 self.torsions.push(DihedralPeriodic::new(k, n, p0, atoms));
             }
 
             "idih_harm" => {
                 let mut atoms: [usize; 4] = [0, 0, 0, 0];
-                interaction.1[..4]
+                params[..4]
                     .iter()
                     .enumerate()
-                    .for_each(|(i, x)| atoms[i] = *x as usize + offset);
-                let k = interaction.1[4];
-                let p0 = interaction.1[5];
+                    .for_each(|(i, x)| atoms[i] = x.parse::<usize>().unwrap() + offset - 1);
+                let p0 = params[4].parse::<f32>().unwrap() * DEG2RAD;
+                let k = params[5].parse::<f32>().unwrap();
                 self.torsions
                     .push(ImproperDihedralHarmonic::new(k, p0, atoms));
             }
             "lj_pair" => {
                 let mut atoms: [usize; 2] = [0, 0];
-                interaction.1[..2]
+                params[..2]
                     .iter()
                     .enumerate()
-                    .for_each(|(i, x)| atoms[i] = *x as usize + offset);
-                let v = interaction.1[2];
-                let w = interaction.1[3];
-                self.pairs.push(BondedLJPair::new(v, w, atoms));
+                    .for_each(|(i, x)| atoms[i] = x.parse::<usize>().unwrap() + offset - 1);
+                let v = params.get(2);
+                let w = params.get(3);
+
+                if let (Some(v), Some(w)) = (v, w) {
+                    self.pairs.push(BondedLJPair::new(
+                        v.parse().unwrap(),
+                        w.parse().unwrap(),
+                        atoms,
+                    ));
+                } else {
+                    let [mut ai, mut aj] = atoms;
+                    ai -= offset;
+                    aj -= offset;
+                    let (vcomb, wcomb) = (self.comb_rule)(
+                        mol.atoms[ai].v,
+                        mol.atoms[ai].w,
+                        mol.atoms[aj].v,
+                        mol.atoms[aj].w,
+                    );
+                    self.pairs.push(BondedLJPair::new(vcomb, wcomb, atoms));
+                }
             }
-            _ => panic!("Unknown interaction"),
+            wtf => panic!("Unknown interaction: {}", wtf),
         }
     }
 
@@ -93,7 +142,7 @@ impl Forces {
             let [i, j] = bond.atoms();
             let (u, f) = bond.calc(&positions[i], &positions[j]);
 
-            // tot_u += u;
+            tot_u += u;
             for d in 0..DIM {
                 forces[i][d] += f[0][d];
                 forces[j][d] += f[1][d];
@@ -123,21 +172,31 @@ impl Forces {
                 forces[l][d] += f[3][d];
             }
         });
+        self.pairs.iter().for_each(|pair| {
+            let [i, j] = pair.atoms();
+            let (u, f) = pair.calc(&positions[i], &positions[j]);
+
+            tot_u += u * self.ljscale;
+            for d in 0..DIM {
+                forces[i][d] += f[0][d] * self.ljscale;
+                forces[j][d] += f[1][d] * self.ljscale;
+            }
+        });
         tot_u
     }
 }
 
-pub trait BondedInteraction {
+pub trait TwoAtomInteraction {
     fn calc(&self, ri: &Rvec, rj: &Rvec) -> (f32, [Rvec; 2]);
     fn atoms(&self) -> [usize; 2];
 }
 
-pub trait AngleInteraction {
+pub trait ThreeAtomInteraction {
     fn calc(&self, ri: &Rvec, rj: &Rvec, rk: &Rvec) -> (f32, [Rvec; 3]);
     fn atoms(&self) -> [usize; 3];
 }
 
-pub trait TorsionInteraction {
+pub trait FourAtomInteraction {
     fn calc(&self, ri: &Rvec, rj: &Rvec, rk: &Rvec, rl: &Rvec) -> (f32, [Rvec; 4]);
     fn atoms(&self) -> [usize; 4];
 }
@@ -154,7 +213,7 @@ impl BondHarmonic {
     }
 }
 
-impl BondedInteraction for BondHarmonic {
+impl TwoAtomInteraction for BondHarmonic {
     fn calc(&self, ri: &Rvec, rj: &Rvec) -> (f32, [Rvec; 2]) {
         functions::bond_harm(self.k, self.r0, ri, rj)
     }
@@ -175,7 +234,7 @@ impl BondedLJPair {
     }
 }
 
-impl BondedInteraction for BondedLJPair {
+impl TwoAtomInteraction for BondedLJPair {
     fn calc(&self, ri: &Rvec, rj: &Rvec) -> (f32, [Rvec; 2]) {
         functions::lj(self.v, self.w, ri, rj)
     }
@@ -196,7 +255,7 @@ impl AngleHarmonic {
     }
 }
 
-impl AngleInteraction for AngleHarmonic {
+impl ThreeAtomInteraction for AngleHarmonic {
     fn calc(&self, ri: &Rvec, rj: &Rvec, rk: &Rvec) -> (f32, [Rvec; 3]) {
         functions::angle_harm(self.k, self.t0, ri, rj, rk)
     }
@@ -218,7 +277,7 @@ impl DihedralPeriodic {
     }
 }
 
-impl TorsionInteraction for DihedralPeriodic {
+impl FourAtomInteraction for DihedralPeriodic {
     fn calc(&self, ri: &Rvec, rj: &Rvec, rk: &Rvec, rl: &Rvec) -> (f32, [Rvec; 4]) {
         functions::pdih(self.k, self.n, self.p0, ri, rj, rk, rl)
     }
@@ -239,7 +298,7 @@ impl ImproperDihedralHarmonic {
     }
 }
 
-impl TorsionInteraction for ImproperDihedralHarmonic {
+impl FourAtomInteraction for ImproperDihedralHarmonic {
     fn calc(&self, ri: &Rvec, rj: &Rvec, rk: &Rvec, rl: &Rvec) -> (f32, [Rvec; 4]) {
         functions::idih_harm(self.k, self.p0, ri, rj, rk, rl)
     }
@@ -251,4 +310,35 @@ impl TorsionInteraction for ImproperDihedralHarmonic {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn it_builds() {
+        //let top = Topology::read("tests/diala.top");
+        //let ff = Forces::new(&top);
+        let mut top = Topology::new();
+        top.defaults.comb_rule = "geom".to_string();
+        top.add_atomtype("a".to_string(), 0, 0.0, 0.0, 0.0);
+
+        top.add_molecule("one".to_string(), 1, 3);
+        top.add_atom(0, "a", "a", 1, "a", 0.0);
+        top.add_atom(0, "a", "a", 1, "a", 0.0);
+        top.add_atom(0, "a", "a", 1, "a", 0.0);
+        top.add_bonded_interaction(0, "bond_harm 1 2 0 0");
+        top.add_bonded_interaction(0, "bond_harm 1 3 0 0");
+        top.add_bonded_interaction(0, "bond_harm 2 3 0 0");
+
+        top.add_molecule("two".to_string(), 10, 3);
+        top.add_atom(1, "a", "a", 1, "a", 0.0);
+        top.add_atom(1, "a", "a", 1, "a", 0.0);
+        top.add_atom(1, "a", "a", 1, "a", 0.0);
+        top.add_bonded_interaction(1, "bond_harm 1 2 0 0");
+        top.add_bonded_interaction(1, "bond_harm 1 3 0 0");
+        top.add_bonded_interaction(1, "bond_harm 2 3 0 0");
+
+        let ff = Forces::new(&top);
+        let [a1, a2] = ff.bonds[ff.bonds.len() - 1].atoms();
+        // 3 + 3*10 atoms = 33; (2, 3) is (32, 33), indexed at (31, 32)
+        assert_eq!(a1, 31);
+        assert_eq!(a2, 32);
+    }
 }

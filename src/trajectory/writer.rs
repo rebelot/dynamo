@@ -7,7 +7,7 @@ use crate::Rvec;
 
 pub struct TrajectoryWriter {
     file: File,
-    interval: i32,
+    pub interval: i32,
 }
 
 impl TrajectoryWriter {
@@ -22,10 +22,7 @@ impl TrajectoryWriter {
             interval,
         }
     }
-    pub fn write(&mut self, positions: &[Rvec], step: &i32, time: &f32) {
-        if step % self.interval != 0 {
-            return;
-        }
+    pub fn write(&mut self, positions: &[Rvec], time: &f32) {
 
         let blob = positions
             .iter()

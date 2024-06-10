@@ -6,7 +6,7 @@ pub struct Molecule {
     pub name: String,
     pub nmols: usize,
     pub nbexc: usize,
-    pub bonded_interactions: Vec<(String, Vec<f32>)>,
+    pub bonded_interactions: Vec<String>,
     pub atoms: Vec<Atom>,
 }
 
@@ -18,7 +18,10 @@ impl Molecule {
             nmols,
             nbexc,
             atoms: Vec::new(),
-            bonded_interactions: Vec::new()
+            bonded_interactions: Vec::new(),
         }
+    }
+    pub fn add_bonded_interaction(&mut self, interaction: &str){
+        self.bonded_interactions.push(interaction.to_string());
     }
 }

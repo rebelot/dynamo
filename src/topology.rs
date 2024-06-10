@@ -9,19 +9,18 @@ use crate::ffield::Forces;
 
 #[derive(Debug, Default)]
 pub struct Defaults {
-    nb_func: String,
-    comb_rule: String,
-    ljscale: Option<f32>,
-    qqscale: Option<f32>,
+    pub nb_func: String,
+    pub comb_rule: String,
+    pub ljscale: Option<f32>,
+    pub qqscale: Option<f32>,
 }
 
 #[derive(Debug, Default)]
 pub struct Topology {
     pub atomtypes: HashMap<String, AtomTypeParams>,
     pub molecules: Vec<Molecule>,
-    pub natoms: usize,
-    pub nmols: usize,
-    pub pbc: [f32; 3],
+    natoms: usize,
+    nmols: usize,
     pub defaults: Defaults,
 }
 
@@ -32,13 +31,13 @@ impl Topology {
 
     pub fn set_defaults(
         &mut self,
-        nb_func: String,
-        comb_rule: String,
+        nb_func: &str,
+        comb_rule: &str,
         ljscale: Option<f32>,
         qqscale: Option<f32>,
     ) {
-        self.defaults.nb_func = nb_func;
-        self.defaults.comb_rule = comb_rule;
+        self.defaults.nb_func = nb_func.to_string();
+        self.defaults.comb_rule = comb_rule.to_string();
         self.defaults.ljscale = ljscale;
         self.defaults.qqscale = qqscale;
     }
@@ -53,10 +52,8 @@ impl Topology {
         self.atomtypes.insert(atomtype, params);
     }
 
-    pub fn add_bonded_interaction(&mut self, funct: &str, params: Vec<f32>) {
-        self.molecules[self.nmols - 1]
-            .bonded_interactions
-            .push((funct.to_owned(), params))
+    pub fn add_bonded_interaction(&mut self, moli: usize, interaction: &str) {
+        self.molecules[moli].add_bonded_interaction(interaction);
     }
 
     pub fn add_molecule(&mut self, name: String, nmols: usize, nbexc: usize) {
@@ -75,44 +72,45 @@ impl Topology {
 
     pub fn add_atom(
         &mut self,
-        atomtype: String,
-        name: String,
+        moli: usize,
+        atomtype: &str,
+        name: &str,
         resnum: usize,
-        resname: String,
+        resname: &str,
         charge: f32,
     ) {
-        if !self.atomtypes.contains_key(&atomtype) {
+        if !self.atomtypes.contains_key(atomtype) {
             panic!("Undefined atom type: {}", atomtype);
         }
         let atom = atom::Atom::new(
             self.natoms,
             atomtype.to_owned(),
-            name,
+            name.to_owned(),
             resnum,
-            resname,
-            self.atomtypes[&atomtype].element,
-            self.atomtypes[&atomtype].mass,
+            resname.to_owned(),
+            self.atomtypes[atomtype].element,
+            self.atomtypes[atomtype].mass,
             charge,
-            self.atomtypes[&atomtype].v,
-            self.atomtypes[&atomtype].w,
+            self.atomtypes[atomtype].v,
+            self.atomtypes[atomtype].w,
         );
-        self.molecules[self.nmols - 1].atoms.push(atom);
+        self.molecules[moli].atoms.push(atom);
         self.natoms += 1;
     }
 
-    pub fn read(filename: &str) -> Self {
-        reader::read(filename)
+    pub fn get_atoms(&self) -> Vec<Atom> {
+        let mut atoms = Vec::new();
+        for mol in &self.molecules {
+            for _ in 0..mol.nmols {
+                for atom in &mol.atoms {
+                    atoms.push(atom.clone());
+                }
+            }
+        }
+        atoms
     }
 
-    pub fn build_forces(&mut self) -> Forces {
-        let mut forces = Forces::new();
-        self.molecules.iter().for_each(|mol| {
-            (0..mol.nmols).for_each(|i| {
-                mol.bonded_interactions.iter().for_each(|interaction| {
-                    forces.parse_interaction(interaction.to_owned(), mol.atoms.len() * i)
-                })
-            })
-        });
-        forces
+    pub fn read(filename: &str) -> Self {
+        reader::parse(filename)
     }
 }
