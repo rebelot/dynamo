@@ -1,5 +1,7 @@
 use std::f32::consts::PI;
 
+use rustfft::num_traits::float::FloatCore;
+
 use crate::linalg::*;
 
 use crate::{Rvec, DIM};
@@ -64,9 +66,6 @@ pub fn dthetadr(ri: &Rvec, rj: &Rvec, rk: &Rvec) -> (f32, [Rvec; 3]) {
 
     let mut fvec = [[0.0; DIM]; 3];
     for i in 0..DIM {
-        // let dri = f * -drji[i];
-        // let drk = f * drjk[i];
-
         let uji = rji[i] / norm_rji;
         let ujk = rjk[i] / norm_rjk;
 
@@ -90,23 +89,26 @@ pub fn dphidr(ri: &Rvec, rj: &Rvec, rk: &Rvec, rl: &Rvec) -> (f32, [Rvec; 4]) {
     let nijk = cross(&rij, &rjk);
     let njkl = cross(&rjk, &rkl);
 
-    let (phi, [dphi_dnijk, _, dphi_dnjkl]) = dthetadr(&nijk, &[0f32; 3], &njkl);
+    let s = dot(&nijk, &rkl).signum();
 
-    let dnijk_drij = [rjk[2] - rjk[1], rjk[0] - rjk[2], rjk[1] - rjk[0]];
-    let dnijk_drjk = [rij[1] - rij[2], rij[2] - rij[0], rij[0] - rij[1]];
-    let dnjkl_drjk = [rkl[2] - rkl[1], rkl[0] - rkl[2], rkl[1] - rkl[0]];
-    let dnjkl_drkl = [rjk[1] - rjk[2], rjk[2] - rjk[0], rjk[0] - rjk[1]];
+    let norm2_nijk = norm2(&nijk);
+    let norm2_njkl = norm2(&njkl);
+    let norm2_rjk = norm2(&rjk);
+
+    let cos_phi = dot(&nijk, &njkl) * (norm2_nijk * norm2_njkl).sqrt().recip();
+    let phi = s * cos_phi.acos();
 
     let mut fvec = [[0.0; DIM]; 4];
 
     for i in 0..DIM {
-        let drij = dphi_dnijk[i] * dnijk_drij[i];
-        let drjk = dphi_dnijk[i] * dnijk_drjk[i] + dphi_dnjkl[i] * dnjkl_drjk[i];
-        let drkl = dphi_dnjkl[i] * dnjkl_drkl[i];
-        fvec[0][i] = -drij;
-        fvec[1][i] = drij - drjk;
-        fvec[2][i] = drjk - drkl;
-        fvec[3][i] = -drkl;
+        let dri = rjk[i] / norm2_nijk * nijk[i];
+        let drl = -rjk[i] / norm2_njkl * njkl[i];
+        let a = rij[i] * rjk[i] / norm2_rjk;
+        let b = rkl[i] * rjk[i] / norm2_rjk;
+        fvec[0][i] = dri;
+        fvec[1][i] = (a - 1f32) * dri - b * drl;
+        fvec[2][i] = (b - 1f32) * drl - a * dri;
+        fvec[3][i] = drl;
     }
     (phi, fvec)
 }
